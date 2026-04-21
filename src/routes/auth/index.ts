@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 import { v4 as uuid } from 'uuid'
 
 // ── SCHEMAS ────────────────────────────────────────────────────────────────────

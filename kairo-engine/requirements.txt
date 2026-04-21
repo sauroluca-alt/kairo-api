@@ -1,0 +1,12 @@
+fastapi==0.109.2
+uvicorn==0.27.1
+apscheduler==3.10.4
+psycopg2-binary==2.9.9
+redis==5.0.3
+httpx==0.26.0
+anthropic==0.23.1
+python-dotenv==1.0.1
+pydantic==2.6.4
+pydantic-settings==2.2.1
+tenacity==8.2.3
+structlog==24.1.0

@@ -142,7 +142,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
       })
 
     } catch (err: any) {
-      fastify.log.error({ err }, 'Error llamando a Claude API')
+      fastify.log.error({ err }, 'Error llamando a Claude API: ' + JSON.stringify(err?.message || err?.status || err))
 
       if (err.status === 401) {
         return reply.code(500).send({
@@ -153,7 +153,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
 
       return reply.code(500).send({
         success: false,
-        error: { code: 'AI_ERROR', message: 'El ángel no está disponible ahora mismo. Inténtalo en unos minutos.' }
+        error: { code: 'AI_ERROR', message: (err?.message || err?.error?.message || 'Error desconocido') }
       })
     }
   })

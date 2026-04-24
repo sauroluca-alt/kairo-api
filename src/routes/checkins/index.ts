@@ -109,7 +109,7 @@ const checkinsRoutes: FastifyPluginAsync = async (fastify) => {
         AND created_at >= NOW() - INTERVAL '7 days'
     `
 
-    // Calcular racha actual (días consecutivos con check-in)
+    // Calcular racha actual (días consecutivos con check-in, empezando desde ayer si hoy no hay)
     const recentDates = await fastify.db`
       SELECT DISTINCT DATE(created_at AT TIME ZONE 'Europe/Madrid') as day
       FROM mood_checkins
@@ -119,18 +119,31 @@ const checkinsRoutes: FastifyPluginAsync = async (fastify) => {
     `
 
     let streak = 0
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    if (recentDates.length > 0) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const yesterday = new Date(today)
+      yesterday.setDate(today.getDate() - 1)
 
-    for (let i = 0; i < recentDates.length; i++) {
-      const expectedDate = new Date(today)
-      expectedDate.setDate(today.getDate() - i)
-      const checkinDate = new Date(recentDates[i].day)
-      checkinDate.setHours(0, 0, 0, 0)
-      if (expectedDate.getTime() === checkinDate.getTime()) {
-        streak++
-      } else {
-        break
+      const lastCheckinDate = new Date(recentDates[0].day)
+      lastCheckinDate.setHours(0, 0, 0, 0)
+
+      // Si el último check-in es hoy o ayer, empezamos a contar
+      const isToday     = lastCheckinDate.getTime() === today.getTime()
+      const isYesterday = lastCheckinDate.getTime() === yesterday.getTime()
+
+      if (isToday || isYesterday) {
+        for (let i = 0; i < recentDates.length; i++) {
+          const expectedDate = new Date(today)
+          expectedDate.setDate(today.getDate() - (isToday ? i : i + 1))
+          const checkinDate = new Date(recentDates[i].day)
+          checkinDate.setHours(0, 0, 0, 0)
+          if (expectedDate.getTime() === checkinDate.getTime()) {
+            streak++
+          } else {
+            break
+          }
+        }
       }
     }
 

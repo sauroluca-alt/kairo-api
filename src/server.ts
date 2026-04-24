@@ -12,7 +12,12 @@ import authRoutes   from './routes/auth/index.js'
 import usersRoutes  from './routes/users/index.js'
 import alertsRoutes from './routes/alerts/index.js'
 import healthRoutes from './routes/health/index.js'
-import chatRoutes   from './routes/chat/index.js'
+import chatRoutes     from './routes/chat/index.js'
+import checkinsRoutes from './routes/checkins/index.js'
+import financeRoutes  from './routes/finance/index.js'
+import sportRoutes    from './routes/sport/index.js'
+import socialRoutes   from './routes/social/index.js'
+import calendarRoutes from './routes/calendar/index.js'
 
 const server = Fastify({
   logger: {
@@ -74,7 +79,12 @@ async function bootstrap() {
   await server.register(authRoutes,   { prefix: `${prefix}/auth` })
   await server.register(usersRoutes,  { prefix: `${prefix}/users` })
   await server.register(alertsRoutes, { prefix: `${prefix}/alerts` })
-  await server.register(chatRoutes,   { prefix: `${prefix}/chat` })
+  await server.register(chatRoutes,     { prefix: `${prefix}/chat` })
+  await server.register(checkinsRoutes, { prefix: `${prefix}/checkins` })
+  await server.register(financeRoutes,  { prefix: `${prefix}/finance` })
+  await server.register(sportRoutes,    { prefix: `${prefix}/sport` })
+  await server.register(socialRoutes,   { prefix: `${prefix}/social` })
+  await server.register(calendarRoutes, { prefix: `${prefix}/calendar` })
 
   server.get('/', async () => ({
     name: 'Kairo API',

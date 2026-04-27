@@ -117,6 +117,7 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /users/me/stats — estadísticas del dashboard
   fastify.get('/me/stats', { preHandler: requireAuth }, async (request, reply) => {
     const user_id = request.user!.sub
+
     const [alertStats] = await fastify.db`
       SELECT
         COUNT(*) FILTER (WHERE status IN ('pending','delivered')) as active_alerts,
@@ -129,13 +130,34 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
       FROM social_connections
       WHERE (user_id_1 = ${user_id} OR user_id_2 = ${user_id}) AND status = 'accepted'
     `
+
+    // Obtener ciudad del usuario para el tiempo
+    const [userCity] = await fastify.db`SELECT city FROM users WHERE id = ${user_id} LIMIT 1`
+    let weatherTemp = 0
+    let weatherDesc = ''
+    try {
+      const apiKey = process.env.OPENWEATHER_API_KEY
+      if (apiKey && userCity?.city) {
+        const res = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(userCity.city)},ES&appid=${apiKey}&units=metric&lang=es`
+        )
+        if (res.ok) {
+          const w = await res.json() as any
+          weatherTemp = Math.round(w.main?.temp ?? 0)
+          weatherDesc = w.weather?.[0]?.description ?? ''
+        }
+      }
+    } catch { /* silencioso */ }
+
     return reply.send({
       success: true,
       data: {
-        active_alerts: Number(alertStats.active_alerts),
+        active_alerts:    Number(alertStats.active_alerts),
         alerts_this_month: Number(alertStats.alerts_this_month),
         acted_this_month: Number(alertStats.acted_this_month),
-        connections: Number(connStats.total_connections),
+        connections:      Number(connStats.total_connections),
+        weather_temp:     weatherTemp,
+        weather_desc:     weatherDesc,
       },
     })
   })

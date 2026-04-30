@@ -45,11 +45,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     const password_hash = await bcrypt.hash(body.password, 12)
     const user_id = uuid()
 
-    // Crear usuario
+    // Crear usuario con plan free
     await db`
-      INSERT INTO users (id, email, password_hash, name, surname, city, birth_year, plan)
+      INSERT INTO users (id, email, password_hash, name, surname, city, birth_year, plan, active_modules)
       VALUES (${user_id}, ${body.email}, ${password_hash}, ${body.name}, ${body.surname},
-              ${body.city}, ${body.birth_year ?? null}, 'koral')
+              ${body.city}, ${body.birth_year ?? null}, 'free', ARRAY['emotional'])
     `
 
     // Preferencias por defecto
@@ -60,7 +60,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Generar tokens
     const access_token = fastify.jwt.sign(
-      { sub: user_id, email: body.email, plan: 'koral' },
+      { sub: user_id, email: body.email, plan: 'free' },
       { expiresIn: '7d' }
     )
     const refresh_token = fastify.jwt.sign(
@@ -68,7 +68,6 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       { expiresIn: '30d' }
     )
 
-    // Guardar refresh token en Redis
     await fastify.redis.setEx(
       `refresh:${user_id}`,
       30 * 24 * 60 * 60,
@@ -78,7 +77,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.code(201).send({
       success: true,
       data: {
-        user: { id: user_id, email: body.email, name: body.name, plan: 'koral' },
+        user: { id: user_id, email: body.email, name: body.name, surname: body.surname, plan: 'free' },
         tokens: { access_token, refresh_token, expires_in: 7 * 24 * 60 * 60 },
       },
     })
@@ -90,7 +89,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     const { db } = fastify
 
     const [user] = await db`
-      SELECT id, email, password_hash, name, plan
+      SELECT id, email, password_hash, name, surname, plan
       FROM users
       WHERE email = ${body.email}
       LIMIT 1
@@ -128,7 +127,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({
       success: true,
       data: {
-        user: { id: user.id, email: user.email, name: user.name, plan: user.plan },
+        user: { id: user.id, email: user.email, name: user.name, surname: user.surname || '', plan: user.plan },
         tokens: { access_token, refresh_token, expires_in: 7 * 24 * 60 * 60 },
       },
     })

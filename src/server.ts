@@ -18,6 +18,7 @@ import financeRoutes  from './routes/finance/index.js'
 import sportRoutes    from './routes/sport/index.js'
 import socialRoutes   from './routes/social/index.js'
 import calendarRoutes from './routes/calendar/index.js'
+import plansRoutes    from './routes/plans/index.js'
 
 const server = Fastify({
   logger: {
@@ -85,6 +86,7 @@ async function bootstrap() {
   await server.register(sportRoutes,    { prefix: `${prefix}/sport` })
   await server.register(socialRoutes,   { prefix: `${prefix}/social` })
   await server.register(calendarRoutes, { prefix: `${prefix}/calendar` })
+  await server.register(plansRoutes,    { prefix: `${prefix}/plans` })
 
   server.get('/', async () => ({
     name: 'Kairo API',

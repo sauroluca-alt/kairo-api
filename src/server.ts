@@ -54,6 +54,24 @@ async function bootstrap() {
   await server.register(dbPlugin)
   await server.register(redisPlugin)
 
+  // ── MIGRACIONES AUTOMÁTICAS ────────────────────────────────────────────────
+  try {
+    await server.db`
+      CREATE TABLE IF NOT EXISTS sport_plans (
+        id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+        objective      TEXT NOT NULL,
+        level          TEXT NOT NULL,
+        training_plan  JSONB NOT NULL,
+        nutrition_plan JSONB NOT NULL,
+        created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `
+    server.log.info('✅ Migración sport_plans OK')
+  } catch (err) {
+    server.log.warn({ err }, 'Migración sport_plans ya existía o error menor')
+  }
+
   server.setErrorHandler((error, _request, reply) => {
     server.log.error(error)
     if (error.name === 'ZodError') {

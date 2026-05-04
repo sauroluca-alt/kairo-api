@@ -88,6 +88,8 @@ async function bootstrap() {
   await server.register(calendarRoutes, { prefix: `${prefix}/calendar` })
   await server.register(plansRoutes,    { prefix: `${prefix}/plans` })
 
+  server.log.info(`✅ Rutas de plans registradas en ${prefix}/plans`)
+
   server.get('/', async () => ({
     name: 'Kairo API',
     version: '1.0.0',

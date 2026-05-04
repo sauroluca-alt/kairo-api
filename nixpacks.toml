@@ -2,7 +2,7 @@
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["npm ci"]
+cmds = ["npm install --include=dev"]
 
 [start]
 cmd = "node -r tsx/cjs src/server.ts"

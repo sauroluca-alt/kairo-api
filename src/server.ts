@@ -19,6 +19,7 @@ import sportRoutes    from './routes/sport/index.js'
 import socialRoutes   from './routes/social/index.js'
 import calendarRoutes from './routes/calendar/index.js'
 import plansRoutes    from './routes/plans/index.js'
+import eventsRoutes   from './routes/events/index.js'
 
 const server = Fastify({
   logger: {
@@ -122,8 +123,30 @@ async function bootstrap() {
   await server.register(socialRoutes,   { prefix: `${prefix}/social` })
   await server.register(calendarRoutes, { prefix: `${prefix}/calendar` })
   await server.register(plansRoutes,    { prefix: `${prefix}/plans` })
+  await server.register(eventsRoutes,   { prefix: `${prefix}/events` })
 
   server.log.info(`✅ Rutas de plans registradas en ${prefix}/plans`)
+
+  // ── CRON JOB PROACTIVO — cada mañana a las 8:00 ────────────────────────────
+  const { generateProactiveAlerts } = await import('./routes/events/index.js')
+
+  const runDailyScan = async () => {
+    try {
+      const users = await server.db`SELECT id FROM users WHERE plan != 'deleted'`
+      let total = 0
+      for (const user of users) {
+        const count = await generateProactiveAlerts(server.db, user.id)
+        total += count
+      }
+      server.log.info(`🔔 Cron proactivo: ${total} alertas generadas para ${users.length} usuarios`)
+    } catch (err) {
+      server.log.error({ err }, 'Error en cron proactivo')
+    }
+  }
+
+  // Ejecutar al arrancar y luego cada 24h
+  setTimeout(runDailyScan, 30000) // 30s después del arranque
+  setInterval(runDailyScan, 24 * 60 * 60 * 1000) // cada 24h
 
   server.get('/', async () => ({
     name: 'Kairo API',

@@ -68,6 +68,20 @@ async function bootstrap() {
       )
     `
     server.log.info('✅ Migración sport_plans OK')
+
+    await server.db`
+      CREATE TABLE IF NOT EXISTS user_detected_interests (
+        id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id          UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        interest_type    TEXT NOT NULL,
+        interest_value   TEXT NOT NULL,
+        confidence       FLOAT NOT NULL DEFAULT 0.8,
+        detection_count  INT NOT NULL DEFAULT 1,
+        detected_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (user_id, interest_type, interest_value)
+      )
+    `
+    server.log.info('✅ Migración user_detected_interests OK')
   } catch (err) {
     server.log.warn({ err }, 'Migración sport_plans ya existía o error menor')
   }

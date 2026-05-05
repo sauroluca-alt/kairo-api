@@ -159,6 +159,9 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
 
       await fastify.db`INSERT INTO chat_messages (user_id, role, content) VALUES (${user_id}, 'assistant', ${assistantMessage})`
 
+      // Extraer intereses de forma asíncrona (no bloquea la respuesta)
+      extractAndSaveInterests(fastify, user_id, message, assistantMessage).catch(() => {})
+
       const crisisKeywords = ['suicid', 'hacerme daño', 'no quiero vivir', 'quitarme la vida', 'autolesion']
       const hasCrisisSignal = crisisKeywords.some(kw => message.toLowerCase().includes(kw))
 
@@ -185,6 +188,77 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
     `
     return reply.send({ success: true, data: messages.reverse() })
   })
+
+  // GET /chat/interests — intereses detectados del usuario
+  fastify.get('/interests', { preHandler: requireAuth }, async (request, reply) => {
+    const user_id = request.user!.sub
+    const interests = await fastify.db`
+      SELECT interest_type, interest_value, confidence, detection_count, detected_at
+      FROM user_detected_interests
+      WHERE user_id = ${user_id}
+      ORDER BY confidence DESC, detection_count DESC
+    `
+    return reply.send({ success: true, data: interests })
+  })
 }
 
 export default chatRoutes
+
+// ── EXTRACTOR DE INTERESES ─────────────────────────────────────────────────────
+async function extractAndSaveInterests(
+  fastify: any,
+  user_id: string,
+  message: string,
+  response: string
+): Promise<void> {
+  try {
+    // Patrones para detectar intereses en el mensaje del usuario
+    const footballTeams = [
+      'atlético', 'atletico', 'atleti', 'real madrid', 'madrid', 'barcelona', 'barça', 'barca',
+      'sevilla', 'valencia', 'betis', 'villarreal', 'athletic', 'bilbao', 'sociedad',
+      'juventus', 'milan', 'inter', 'napoli', 'roma', 'arsenal', 'chelsea', 'liverpool',
+      'manchester', 'city', 'united', 'psg', 'bayern', 'dortmund'
+    ]
+
+    const musicArtists = [
+      'rosalía', 'rosalia', 'bad bunny', 'j balvin', 'shakira', 'alejandro sanz',
+      'coldplay', 'taylor swift', 'beyoncé', 'beyonce', 'drake', 'rihanna',
+      'maluma', 'ozuna', 'anuel', 'karol g', 'rauw alejandro', 'myke towers',
+      'guns n roses', 'metallica', 'u2', 'radiohead', 'arctic monkeys'
+    ]
+
+    const combined = (message + ' ' + response).toLowerCase()
+    const detected: { type: string; value: string }[] = []
+
+    footballTeams.forEach(team => {
+      if (combined.includes(team)) {
+        detected.push({ type: 'football_team', value: team })
+      }
+    })
+
+    musicArtists.forEach(artist => {
+      if (combined.includes(artist)) {
+        detected.push({ type: 'music_artist', value: artist })
+      }
+    })
+
+    if (detected.length === 0) return
+
+    // Guardar intereses detectados
+    for (const interest of detected) {
+      await fastify.db`
+        INSERT INTO user_detected_interests (user_id, interest_type, interest_value, detected_at, confidence)
+        VALUES (${user_id}, ${interest.type}, ${interest.value}, NOW(), 0.8)
+        ON CONFLICT (user_id, interest_type, interest_value)
+        DO UPDATE SET
+          detected_at = NOW(),
+          confidence = LEAST(user_detected_interests.confidence + 0.1, 1.0),
+          detection_count = user_detected_interests.detection_count + 1
+      `
+    }
+
+    fastify.log.info({ user_id, detected }, 'Intereses detectados y guardados')
+  } catch (err) {
+    fastify.log.warn({ err }, 'Error extrayendo intereses')
+  }
+}

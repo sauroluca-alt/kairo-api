@@ -81,7 +81,10 @@ async function bootstrap() {
         UNIQUE (user_id, interest_type, interest_value)
       )
     `
-    server.log.info('✅ Migración user_detected_interests OK')
+    await server.db`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token TEXT
+    `
+    server.log.info('✅ Migración fcm_token OK')
   } catch (err) {
     server.log.warn({ err }, 'Migración sport_plans ya existía o error menor')
   }

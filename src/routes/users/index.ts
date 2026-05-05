@@ -65,14 +65,21 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
 
   // PATCH /users/me/modules
   fastify.patch('/me/modules', { preHandler: requireAuth }, async (request, reply) => {
-    const { active_modules } = UpdateModulesSchema.parse(request.body)
+    const body = request.body as any
     const user_id = request.user!.sub
+
+    const active_modules = body.modules || body.active_modules || []
+    const interests = body.interests || null
+    const city = body.city || null
 
     const [updated] = await fastify.db`
       UPDATE users
-      SET active_modules = ${active_modules as KairoModule[]}, updated_at = NOW()
+      SET active_modules = ${active_modules},
+          interests      = COALESCE(${interests}, interests),
+          city           = COALESCE(${city}, city),
+          updated_at     = NOW()
       WHERE id = ${user_id}
-      RETURNING id, active_modules
+      RETURNING id, active_modules, interests, city
     `
 
     // Notificar al motor de alertas del cambio
@@ -182,3 +189,13 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
 }
 
 export default usersRoutes
+
+  // POST /users/me/fcm-token — guardar token FCM del dispositivo
+  fastify.post('/me/fcm-token', { preHandler: requireAuth }, async (request, reply) => {
+    const { fcm_token } = request.body as { fcm_token: string }
+    const user_id = request.user!.sub
+    await fastify.db`
+      UPDATE users SET fcm_token = ${fcm_token} WHERE id = ${user_id}
+    `
+    return reply.send({ success: true })
+  })

@@ -186,9 +186,6 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     await fastify.redis.del(`refresh:${user_id}`)
     return reply.send({ success: true, data: { message: 'Cuenta eliminada correctamente' } })
   })
-}
-
-export default usersRoutes
 
   // POST /users/me/fcm-token — guardar token FCM del dispositivo
   fastify.post('/me/fcm-token', { preHandler: requireAuth }, async (request, reply) => {
@@ -199,3 +196,6 @@ export default usersRoutes
     `
     return reply.send({ success: true })
   })
+}
+
+export default usersRoutes

@@ -19,7 +19,7 @@ import sportRoutes    from './routes/sport/index.js'
 import socialRoutes   from './routes/social/index.js'
 import calendarRoutes from './routes/calendar/index.js'
 import plansRoutes    from './routes/plans/index.js'
-import eventsRoutes   from './routes/events/index.js'
+import eventsRoutes, { generateProactiveAlerts } from './routes/events/index.js'
 
 const server = Fastify({
   logger: {
@@ -130,8 +130,7 @@ async function bootstrap() {
   // ── CRON JOB PROACTIVO — cada mañana ──────────────────────────────────────
   const runDailyScan = async () => {
     try {
-      const { generateProactiveAlerts } = await import('./routes/events/index.js')
-      const users = await server.db`SELECT id FROM users WHERE plan != 'deleted'`
+      const users = await server.db`SELECT id FROM users`
       let total = 0
       for (const user of users) {
         const count = await generateProactiveAlerts(server.db, user.id)

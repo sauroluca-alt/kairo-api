@@ -36,34 +36,81 @@ async function searchConcerts(artist: string, city: string = 'Madrid'): Promise<
   }
 }
 
-// Buscar partidos de fútbol para un equipo
+// Mapa de nombres coloquiales → ID exacto en football-data.org
+const TEAM_ID_MAP: Record<string, number> = {
+  // España
+  'atletico': 78, 'atleti': 78, 'atlético': 78, 'atletico de madrid': 78,
+  'real madrid': 86, 'madrid': 86,
+  'barcelona': 81, 'barça': 81, 'barca': 81,
+  'sevilla': 559,
+  'valencia': 95,
+  'betis': 90, 'real betis': 90,
+  'villarreal': 94,
+  'athletic': 77, 'bilbao': 77, 'athletic bilbao': 77,
+  'sociedad': 92, 'real sociedad': 92,
+  'osasuna': 79,
+  'girona': 298,
+  'getafe': 83,
+  'las palmas': 275,
+  'rayo': 88, 'rayo vallecano': 88,
+  'celta': 558, 'celta vigo': 558,
+  'alaves': 263,
+  'leganes': 745,
+  'espanyol': 80,
+  'mallorca': 89,
+  'valladolid': 250,
+  // Internacional
+  'juventus': 109,
+  'milan': 98, 'ac milan': 98,
+  'inter': 108, 'inter milan': 108,
+  'napoli': 113,
+  'roma': 100,
+  'arsenal': 57,
+  'chelsea': 61,
+  'liverpool': 64,
+  'manchester city': 65, 'city': 65,
+  'manchester united': 66, 'united': 66,
+  'psg': 85, 'paris': 85,
+  'bayern': 5, 'bayern munich': 5,
+  'dortmund': 4, 'borussia': 4,
+}
+
 async function searchFootballMatches(teamName: string): Promise<any[]> {
   try {
     const token = process.env.FOOTBALL_DATA_TOKEN
     if (!token) return []
 
-    // Primero buscar el ID del equipo
-    const teamsRes = await fetch(
-      `https://api.football-data.org/v4/teams?search=${encodeURIComponent(teamName)}`,
-      { headers: { 'X-Auth-Token': token } }
-    )
-    if (!teamsRes.ok) return []
+    const normalized = teamName.toLowerCase().trim()
 
-    const teamsData = await teamsRes.json() as any
-    const team = teamsData.teams?.[0]
-    if (!team) return []
+    // Buscar ID directo en el mapa
+    let teamId: number | null = null
+    for (const [key, id] of Object.entries(TEAM_ID_MAP)) {
+      if (normalized.includes(key) || key.includes(normalized)) {
+        teamId = id
+        break
+      }
+    }
 
-    // Buscar próximos partidos del equipo
+    if (!teamId) {
+      // Fallback: búsqueda por nombre
+      const teamsRes = await fetch(
+        `https://api.football-data.org/v4/teams?search=${encodeURIComponent(teamName)}`,
+        { headers: { 'X-Auth-Token': token } }
+      )
+      if (!teamsRes.ok) return []
+      const teamsData = await teamsRes.json() as any
+      teamId = teamsData.teams?.[0]?.id
+      if (!teamId) return []
+    }
+
     const matchesRes = await fetch(
-      `https://api.football-data.org/v4/teams/${team.id}/matches?status=SCHEDULED&limit=5`,
+      `https://api.football-data.org/v4/teams/${teamId}/matches?status=SCHEDULED&limit=5`,
       { headers: { 'X-Auth-Token': token } }
     )
     if (!matchesRes.ok) return []
 
     const matchesData = await matchesRes.json() as any
-    const matches = matchesData.matches || []
-
-    return matches.map((m: any) => ({
+    return (matchesData.matches || []).map((m: any) => ({
       id: m.id,
       home_team: m.homeTeam?.name,
       away_team: m.awayTeam?.name,

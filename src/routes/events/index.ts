@@ -82,7 +82,6 @@ async function generateProactiveAlerts(db: any, userId: string): Promise<number>
   let alertsCreated = 0
 
   try {
-    // Obtener intereses del usuario
     const interests = await db`
       SELECT interest_type, interest_value, confidence
       FROM user_detected_interests
@@ -92,21 +91,21 @@ async function generateProactiveAlerts(db: any, userId: string): Promise<number>
       LIMIT 10
     `
 
+    console.log(`[Proactive] Usuario ${userId}: ${interests.length} intereses`)
     if (interests.length === 0) return 0
 
-    // Obtener ciudad del usuario
     const [user] = await db`SELECT city FROM users WHERE id = ${userId} LIMIT 1`
     const city = user?.city || 'Madrid'
 
     for (const interest of interests) {
+      console.log(`[Proactive] Procesando: ${interest.interest_type} = ${interest.interest_value}`)
+
       if (interest.interest_type === 'music_artist') {
-        // Buscar conciertos del artista
         const concerts = await searchConcerts(interest.interest_value, city)
+        console.log(`[Proactive] Conciertos encontrados para ${interest.interest_value}: ${concerts.length}`)
 
         for (const concert of concerts.slice(0, 2)) {
           if (!concert.date) continue
-
-          // Verificar que no existe ya esta alerta
           const existing = await db`
             SELECT id FROM alerts
             WHERE user_id = ${userId}
@@ -114,74 +113,45 @@ async function generateProactiveAlerts(db: any, userId: string): Promise<number>
             LIMIT 1
           `
           if (existing.length > 0) continue
-
-          const priceInfo = concert.price_min
-            ? ` · Desde ${concert.price_min}€`
-            : ''
-
+          const priceInfo = concert.price_min ? ` · Desde ${concert.price_min}€` : ''
           await db`
-            INSERT INTO alerts (
-              user_id, rule_id, module, type, priority,
-              title, description, status, created_at
-            ) VALUES (
-              ${userId},
-              ${'EVT-' + concert.id.slice(0, 8)},
-              'social',
-              'suggestion',
-              2,
+            INSERT INTO alerts (user_id, rule_id, module, type, priority, title, description, status, created_at)
+            VALUES (${userId}, ${'EVT-' + concert.id.slice(0, 8)}, 'social', 'suggestion', 2,
               ${`🎵 ${concert.name}`},
               ${`${concert.date} en ${concert.venue || concert.city || city}${priceInfo}`},
-              'pending',
-              NOW()
-            )
+              'pending', NOW())
           `
           alertsCreated++
+          console.log(`[Proactive] ✅ Alerta creada: ${concert.name}`)
         }
       }
 
       if (interest.interest_type === 'football_team') {
-        // Buscar próximos partidos
         const matches = await searchFootballMatches(interest.interest_value)
+        console.log(`[Proactive] Partidos encontrados para ${interest.interest_value}: ${matches.length}`)
 
         for (const match of matches.slice(0, 2)) {
           const existing = await db`
-            SELECT id FROM alerts
-            WHERE user_id = ${userId}
-              AND rule_id = ${'FTB-' + match.id}
-            LIMIT 1
+            SELECT id FROM alerts WHERE user_id = ${userId} AND rule_id = ${'FTB-' + match.id} LIMIT 1
           `
           if (existing.length > 0) continue
-
           const date = new Date(match.date)
-          const dateStr = date.toLocaleDateString('es-ES', {
-            weekday: 'long', day: 'numeric', month: 'long'
-          })
-          const timeStr = date.toLocaleTimeString('es-ES', {
-            hour: '2-digit', minute: '2-digit'
-          })
-
+          const dateStr = date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
+          const timeStr = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
           await db`
-            INSERT INTO alerts (
-              user_id, rule_id, module, type, priority,
-              title, description, status, created_at
-            ) VALUES (
-              ${userId},
-              ${'FTB-' + match.id},
-              'social',
-              'motivation',
-              3,
+            INSERT INTO alerts (user_id, rule_id, module, type, priority, title, description, status, created_at)
+            VALUES (${userId}, ${'FTB-' + match.id}, 'social', 'motivation', 3,
               ${`⚽ ${match.home_team} vs ${match.away_team}`},
               ${`${dateStr} a las ${timeStr} · ${match.competition}`},
-              'pending',
-              NOW()
-            )
+              'pending', NOW())
           `
           alertsCreated++
+          console.log(`[Proactive] ✅ Alerta creada: ${match.home_team} vs ${match.away_team}`)
         }
       }
     }
   } catch (err) {
-    console.error('Error generando alertas proactivas:', err)
+    console.error('[Proactive] Error:', err)
   }
 
   return alertsCreated

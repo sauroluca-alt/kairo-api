@@ -227,17 +227,21 @@ async function extractAndSaveInterests(
       'guns n roses', 'metallica', 'u2', 'radiohead', 'arctic monkeys'
     ]
 
-    const combined = (message + ' ' + response).toLowerCase()
+    // Normalizar texto eliminando acentos para mejor matching
+    const normalize = (s: string) => s.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    
+    const combined = normalize(message + ' ' + response)
     const detected: { type: string; value: string }[] = []
 
     footballTeams.forEach(team => {
-      if (combined.includes(team)) {
+      if (combined.includes(normalize(team))) {
         detected.push({ type: 'football_team', value: team })
       }
     })
 
     musicArtists.forEach(artist => {
-      if (combined.includes(artist)) {
+      if (combined.includes(normalize(artist))) {
         detected.push({ type: 'music_artist', value: artist })
       }
     })

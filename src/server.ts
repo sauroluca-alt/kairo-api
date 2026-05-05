@@ -127,26 +127,24 @@ async function bootstrap() {
 
   server.log.info(`✅ Rutas de plans registradas en ${prefix}/plans`)
 
-  // ── CRON JOB PROACTIVO — cada mañana a las 8:00 ────────────────────────────
-  const { generateProactiveAlerts } = await import('./routes/events/index.js')
-
+  // ── CRON JOB PROACTIVO — cada mañana ──────────────────────────────────────
   const runDailyScan = async () => {
     try {
+      const { generateProactiveAlerts } = await import('./routes/events/index.js')
       const users = await server.db`SELECT id FROM users WHERE plan != 'deleted'`
       let total = 0
       for (const user of users) {
         const count = await generateProactiveAlerts(server.db, user.id)
         total += count
       }
-      server.log.info(`🔔 Cron proactivo: ${total} alertas generadas para ${users.length} usuarios`)
+      server.log.info(`🔔 Cron proactivo: ${total} alertas para ${users.length} usuarios`)
     } catch (err) {
       server.log.error({ err }, 'Error en cron proactivo')
     }
   }
 
-  // Ejecutar al arrancar y luego cada 24h
-  setTimeout(runDailyScan, 30000) // 30s después del arranque
-  setInterval(runDailyScan, 24 * 60 * 60 * 1000) // cada 24h
+  setTimeout(runDailyScan, 60000)
+  setInterval(runDailyScan, 24 * 60 * 60 * 1000)
 
   server.get('/', async () => ({
     name: 'Kairo API',

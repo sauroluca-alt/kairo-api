@@ -196,6 +196,19 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     `
     return reply.send({ success: true })
   })
+
+  // POST /users/me/test-notification — enviar notificación de prueba
+  fastify.post('/me/test-notification', { preHandler: requireAuth }, async (request, reply) => {
+    const user_id = request.user!.sub
+    const { sendNotificationToUser } = await import('../services/notifications.js')
+    const sent = await sendNotificationToUser(
+      fastify.db, user_id,
+      '✨ Kairo está contigo',
+      'Las notificaciones push funcionan correctamente.',
+      'test'
+    )
+    return reply.send({ success: true, sent })
+  })
 }
 
 export default usersRoutes

@@ -78,6 +78,10 @@ ${alertsText}
 
 PERFIL: ${user.city || 'Madrid'} · Plan ${user.plan} · Intereses: ${(user.interests || []).join(', ') || 'no especificados'}
 
+GESTIÓN DE INTERESES: Si el usuario pide eliminar intereses (artistas, equipos, géneros musicales), responde que lo has hecho. Si pide añadir intereses, responde que los has guardado. En ambos casos incluye al final de tu respuesta exactamente esta línea (sin mostrarla al usuario como texto):
+KAIRO_ACTION:{"type":"update_interests","add":[],"remove":[]}
+Rellena add y remove con los valores mencionados en minúsculas. Ejemplo: KAIRO_ACTION:{"type":"update_interests","add":["techno","house"],"remove":["rosalia"]}
+
 LÍMITES: No ejecutas transacciones. No asesoras inversiones (MiFID II). No eres médico ni abogado. En crisis severa → Teléfono de la Esperanza 717 003 717.`
 }
 
@@ -154,8 +158,31 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
         messages: claudeMessages,
       })
 
-      const assistantMessage = response.content[0].type === 'text'
+      const rawMessage = response.content[0].type === 'text'
         ? response.content[0].text : 'Lo siento, no pude procesar tu mensaje.'
+
+      // Procesar KAIRO_ACTION si existe
+      let assistantMessage = rawMessage
+      const actionMatch = rawMessage.match(/KAIRO_ACTION:(\{[^}]+\})/)
+      if (actionMatch) {
+        try {
+          const action = JSON.parse(actionMatch[1])
+          assistantMessage = rawMessage.replace(/KAIRO_ACTION:[^\n]+/g, '').trim()
+          if (action.type === 'update_interests') {
+            if (action.remove?.length > 0) {
+              for (const val of action.remove) {
+                await fastify.db`DELETE FROM user_detected_interests WHERE user_id = ${user_id} AND interest_value ILIKE ${'%' + val + '%'}`
+              }
+            }
+            if (action.add?.length > 0) {
+              for (const val of action.add) {
+                const type = ['techno','house','electro','edm','trance','reggaeton','trap','jazz','rock','pop','metal','flamenco','electronica','festival'].some(g => val.includes(g)) ? 'music_genre' : 'music_artist'
+                await fastify.db`INSERT INTO user_detected_interests (user_id, interest_type, interest_value, detected_at, confidence, detection_count) VALUES (${user_id}, ${type}, ${val}, NOW(), 0.9, 1) ON CONFLICT (user_id, interest_type, interest_value) DO UPDATE SET confidence = 0.9, detected_at = NOW()`
+              }
+            }
+          }
+        } catch (e) { fastify.log.warn('Error KAIRO_ACTION:', e) }
+      }
 
       await fastify.db`INSERT INTO chat_messages (user_id, role, content) VALUES (${user_id}, 'assistant', ${assistantMessage})`
 
@@ -224,7 +251,18 @@ async function extractAndSaveInterests(
       'rosalía', 'rosalia', 'bad bunny', 'j balvin', 'shakira', 'alejandro sanz',
       'coldplay', 'taylor swift', 'beyoncé', 'beyonce', 'drake', 'rihanna',
       'maluma', 'ozuna', 'anuel', 'karol g', 'rauw alejandro', 'myke towers',
-      'guns n roses', 'metallica', 'u2', 'radiohead', 'arctic monkeys'
+      'guns n roses', 'metallica', 'u2', 'radiohead', 'arctic monkeys',
+      'dua lipa', 'the weeknd', 'harry styles', 'billie eilish', 'olivia rodrigo',
+      'david guetta', 'calvin harris', 'tiesto', 'martin garrix', 'hardwell',
+      'flume', 'disclosure', 'bicep', 'boiler room', 'aphex twin'
+    ]
+
+    const musicGenres = [
+      'techno', 'house', 'electrónica', 'electronica', 'edm', 'trance', 'ambient',
+      'reggaeton', 'trap', 'hiphop', 'hip hop', 'rap', 'jazz', 'blues', 'soul',
+      'rock', 'metal', 'punk', 'indie', 'pop', 'flamenco', 'salsa', 'cumbia',
+      'drum and bass', 'dnb', 'dubstep', 'techhouse', 'tech house', 'minimal',
+      'festival', 'festivales', 'concierto', 'conciertos'
     ]
 
     // Normalizar texto eliminando acentos para mejor matching
@@ -243,6 +281,12 @@ async function extractAndSaveInterests(
     musicArtists.forEach(artist => {
       if (combined.includes(normalize(artist))) {
         detected.push({ type: 'music_artist', value: artist })
+      }
+    })
+
+    musicGenres.forEach(genre => {
+      if (combined.includes(normalize(genre))) {
+        detected.push({ type: 'music_genre', value: genre })
       }
     })
 

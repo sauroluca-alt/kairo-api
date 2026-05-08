@@ -47,11 +47,15 @@ function buildSystemPrompt(user: any, weather: string, eventsText: string, steps
   let nutritionContext = 'Sin plan nutricional configurado.'
   if (nutritionPlan) {
     const hour = new Date().getHours()
+    // Pasar TODAS las comidas con sus nombres y horas
+    const allMeals = nutritionPlan.meals?.map((m: any) =>
+      `${m.name}(${m.time || '?'}, ${m.calories || 0}kcal): ${m.description?.slice(0, 50) || ''}`
+    ).join(' | ') || ''
     const nextMeal = nutritionPlan.meals?.find((m: any) => {
       const mealHour = parseInt(m.time?.split(':')[0] || '0')
       return mealHour > hour
     }) || nutritionPlan.meals?.[0]
-    nutritionContext = `${nutritionPlan.daily_calories || 0} kcal/día | Próxima comida: ${nextMeal?.name || 'Sin datos'} a las ${nextMeal?.time || '?'} - ${nextMeal?.description?.slice(0, 80) || ''}`
+    nutritionContext = `${nutritionPlan.daily_calories || 0}kcal/día. COMIDAS: ${allMeals}. Próxima: ${nextMeal?.name || '?'} a las ${nextMeal?.time || '?'}. Nota: "almuerzo", "comida del mediodía" y "comida" son lo mismo.`
   }
 
   return `Eres Kairo, el ángel personal de ${user.name}.
